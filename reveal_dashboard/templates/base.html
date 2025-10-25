@@ -1,0 +1,83 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- هذا سيسمح لكل صفحة بتحديد عنوانها الخاص -->
+    <title>{% block title %}منظومة ريفيل{% endblock %}</title>
+    
+    <!-- ربط ملف CSS الرئيسي -->
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    
+    <!-- مكان مخصص لملفات CSS الخاصة بكل صفحة -->
+    {% block page_css %}{% endblock %}
+</head>
+<body>
+
+    <div class="main-grid">
+        <!-- ========================== -->
+        <!--      الشريط الجانبي        -->
+        <!-- ========================== -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h3>منظومة ريفيل</h3>
+            </div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <!-- سنستخدم "request.resolver_match.url_name" لتحديد الصفحة النشطة وتلوينها -->
+                    <li class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                        <a href="{% url 'core:dashboard' %}">لوحة التحكم</a>
+                    </li>
+                    <li class="{% if request.resolver_match.url_name == 'orders' %}active{% endif %}">
+                        <a href="{% url 'core:orders' %}">إدارة الطلبات</a>
+                    </li>
+                    <li class="{% if request.resolver_match.url_name == 'products' %}active{% endif %}">
+                        <a href="{% url 'core:products' %}">إدارة المنتجات</a>
+                    </li>
+                    <li class="{% if request.resolver_match.url_name == 'stock' %}active{% endif %}">
+                        <a href="{% url 'core:stock' %}">إدارة المخزون</a>
+                    </li>
+                    <li class="{% if request.resolver_match.url_name == 'customers' %}active{% endif %}">
+                        <a href="{% url 'core:customers' %}">إدارة العملاء</a>
+                    </li>
+                    <li class="{% if request.resolver_match.url_name == 'reports' %}active{% endif %}">
+                        <a href="{% url 'core:reports' %}">التقارير</a>
+                    </li>
+                    <li class="{% if request.resolver_match.url_name == 'wallet_recharge' %}active{% endif %}">
+                        <a href="{% url 'core:wallet_recharge' %}">شحن المحفظة</a>
+                    </li>
+                    <li class="{% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
+                        <a href="{% url 'core:settings' %}">الإعدادات</a>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- ========================== -->
+        <!--      المحتوى الرئيسي       -->
+        <!-- ========================== -->
+        <div class="main-content">
+            <header class="top-bar">
+                <div class="user-info">
+                    <span>اسم المستخدم</span>
+                    <a href="#">خروج</a>
+                </div>
+            </header>
+            
+            <main class="page-content">
+                <!-- هذا هو المكان الذي سيظهر فيه محتوى كل صفحة -->
+                {% block content %}
+                {% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <!-- ربط ملف JS الرئيسي -->
+    <script src="{% static 'js/main.js' %}"></script>
+    
+    <!-- مكان مخصص لملفات JS الخاصة بكل صفحة -->
+    {% block page_js %}{% endblock %}
+</body>
+</html>
