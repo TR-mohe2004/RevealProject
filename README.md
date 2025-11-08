@@ -1,0 +1,156 @@
+## 📋 Overview
+
+The Reveel Management System (منظومة ريفيل) is a robust Django-based web application meticulously designed to streamline key business processes through a single, unified interface. It boasts a consistent and extensible template structure, ensuring unparalleled scalability, maintainability, and ease of customization for your evolving business needs.
+
+### Key Features:
+
+*   **Dynamic Sidebar Navigation:** Intuitive sidebar with automatic active-page highlighting for seamless user experience.
+*   **Sleek Top Navigation Bar:** Provides essential user information and quick access links.
+*   **Modular Content Area:** A dedicated main content area for displaying page-specific information.
+*   **Flexible CSS & JS Inclusion:** Block-based inclusion for page-specific styles and scripts, promoting reusability and efficient asset management.
+
+---
+
+## 🧩 Template Structure
+
+The system is built around a powerful `base.html` template that defines the global layout for all pages, promoting consistency and reducing redundancy.
+
+### `base.html` Key Template Blocks:
+
+*   `{% block title %}`: Defines the title of each page.
+*   `{% block page_css %}`: For including page-specific CSS files.
+*   `{% block content %}`: The main area where unique page content resides.
+*   `{% block page_js %}`: For including page-specific JavaScript files.
+
+---
+
+## 🗂️ Folder Structure
+
+The project follows a clear and organized folder structure for easy navigation and development:
+
+```
+project_root/
+│
+├── core/
+│   ├── templates/
+│   │   ├── base.html          # The foundational layout file
+│   │   ├── dashboard.html     # Example dashboard page
+│   │   ├── orders.html        # Orders management page
+│   │   ├── products.html      # Products management page
+│   │   ├── stock.html         # Stock management page
+│   │   ├── customers.html     # Customer management page
+│   │   ├── reports.html       # Business reports page
+│   │   ├── wallet_recharge.html # Wallet recharge functionality
+│   │   └── settings.html      # Application settings page
+│   └── views.py               # Django views handling page logic
+│
+├── static/
+│   ├── css/
+│   │   └── main.css           # Global stylesheets
+│   ├── js/
+│   │   └── main.js            # Global JavaScript files
+│   └── images/                # Optional directory for image assets
+│
+├── manage.py                  # Django's command-line utility
+└── requirements.txt           # List of Python dependencies
+```
+
+---
+
+## ⚙️ Installation
+
+Follow these simple steps to get the Reveel Management System up and running on your local machine:
+
+1.  **Clone the Repository:**
+
+    ```bash
+    git clone https://github.com/yourusername/reveel-management.git
+    cd reveel-management
+    ```
+
+2.  **Create and Activate a Virtual Environment:**
+
+    ```bash
+    python -m venv venv
+    # On Linux/macOS:
+    source venv/bin/activate
+    # On Windows:
+    venv\Scripts\activate
+    ```
+
+3.  **Install Dependencies:**
+
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+4.  **Run Database Migrations:**
+
+    ```bash
+    python manage.py migrate
+    ```
+
+5.  **Run the Development Server:**
+
+    ```bash
+    python manage.py runserver
+    ```
+
+    Now, open your browser and navigate to:
+    👉 [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
+
+---
+
+## 🧱 How to Extend Pages
+
+Creating new pages is straightforward. Simply extend the `base.html` template and define your page-specific content within the designated blocks:
+
+```html
+{% extends 'base.html' %}
+
+{% block title %}Orders - Reveel{% endblock %}
+
+{% block content %}
+    <h2>Orders Management</h2>
+    <p>Here you can view, add, or edit customer orders.</p>
+{% endblock %}
+```
+
+Remember to add its corresponding view in `views.py` and define a URL pattern in your `urls.py` file.
+
+---
+
+## 🧭 Active Sidebar Highlighting
+
+The system intelligently highlights the active page in the sidebar using Django's template logic:
+
+```html
+{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}
+```
+
+This snippet ensures a dynamic and user-friendly navigation experience.
+
+---
+
+## 🧰 Tech Stack
+
+The Reveel Management System is built with a modern and robust technology stack:
+
+*   **Backend:** Python (Django Framework)
+*   **Frontend:** HTML5, CSS3, JavaScript
+*   **Template Engine:** Django Template Language (DTL)
+*   **Language Support:** Arabic (Right-to-Left - RTL layout)
+
+---
+
+## 📜 License
+
+This project is proudly open-source and distributed under the **MIT License**. See the `LICENSE` file for more details.
+
+---
+
+## 💡 Author
+
+**Reveel Project Team**
+
+Developed with a focus on delivering clarity, structure, and a modern business management interface, particularly catering to Arabic-speaking users.
