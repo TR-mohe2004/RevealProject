@@ -6,5 +6,7 @@ urlpatterns = [
 
     # --- إضافة هنا ---
     # أي رابط يتم طلبه، قم بتوجيهه إلى ملف core/urls.py للبحث عن تطابق هناك.
-    path('', include('core.urls', namespace='core')),
+    # استبدل السطر القديم بهذا السطر
+    path('', include('core.urls')),
+
 ]

@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-import os # تم استيراد مكتبة os للتعامل مع المسارات
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__ ).resolve().parent.parent
@@ -21,7 +21,7 @@ BASE_DIR = Path(__file__ ).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-+0nj_boe@4y7sf5mmwc )!#b+-o3aw4t))+9s4u$6-2h#g3!y=u'
+SECRET_KEY = 'django-insecure-+0nj_boe@4y7sf5mmwc  )!#b+-o3aw4t))+9s4u$6-2h#g3!y=u'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -59,8 +59,6 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        # --- تعديل هنا ---
-        # أخبرنا دجانقو بوجود مجلد قوالب رئيسي اسمه "templates"
         'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -79,6 +77,8 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# ملاحظة: بما أننا نستخدم Firestore، لم نعد نعتمد على هذه القاعدة
+# لكن من الأفضل إبقاؤها موجودة لعمل تطبيقات Django الداخلية.
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -109,28 +109,49 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-# --- تعديل هنا ---
-LANGUAGE_CODE = 'ar' # تم تغيير اللغة إلى العربية
-TIME_ZONE = 'Asia/Riyadh' # يمكنك تغييرها حسب دولتك
+LANGUAGE_CODE = 'ar'
+TIME_ZONE = 'Asia/Riyadh'
 
 USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images )
+# Static files (CSS, JavaScript, Images  )
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
 
-# --- إضافة هنا ---
-# تعريف المسار الذي سيتم تجميع الملفات الثابتة فيه
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static' )
+    BASE_DIR / "static",
 ]
-# STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # ستحتاج هذا السطر عند نشر المشروع
 
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# ==========================================================
+# == FIREBASE ADMIN SDK INITIALIZATION (هذا هو الجزء المضاف )
+# ==========================================================
+import firebase_admin
+from firebase_admin import credentials, firestore
+
+# المسار إلى ملف credentials الخاص بـ Firebase
+# يفترض أن الملف موجود في المجلد الرئيسي للمشروع (بجانب manage.py)
+FIREBASE_CREDS_PATH = os.path.join(BASE_DIR, 'firebase-credentials.json')
+
+# التحقق من عدم تهيئة التطبيق مسبقاً لتجنب الأخطاء
+if not firebase_admin._apps:
+    try:
+        cred = credentials.Certificate(FIREBASE_CREDS_PATH)
+        firebase_admin.initialize_app(cred)
+        print("Firebase App Initialized successfully!")
+    except Exception as e:
+        print(f"Error initializing Firebase App: {e}")
+
+# !!! هذا هو السطر الأهم الذي يحل المشكلة !!!
+# إنشاء متغير اتصال بقاعدة بيانات Firestore ليكون متاحاً في كل المشروع
+FIRESTORE_DB = firestore.client()
+
