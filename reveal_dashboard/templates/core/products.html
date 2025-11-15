@@ -9,11 +9,11 @@
     </button>
 </div>
 
-<div class="card">
+<div class="card shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover mb-0">
-                <thead>
+                <thead class="table-light">
                     <tr>
                         <th scope="col" class="ps-4">المنتج</th>
                         <th scope="col">السعر</th>
@@ -28,7 +28,7 @@
                         <td class="ps-4">
                             <div class="d-flex align-items-center">
                                 {% if product.image_url %}
-                                    <img src="{{ product.image_url }}" alt="{{ product.name }}" width="50" height="50" class="rounded me-3">
+                                    <img src="{{ product.image_url }}" alt="{{ product.name }}" width="50" height="50" class="rounded me-3 object-fit-cover">
                                 {% else %}
                                     <div class="bg-secondary rounded text-white d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;"><i class="fas fa-image fa-lg"></i></div>
                                 {% endif %}
@@ -45,7 +45,7 @@
                             {% endif %}
                         </td>
                         <td>
-                            <button class="btn btn-sm btn-outline-primary">تعديل</button>
+                            <button class="btn btn-sm btn-outline-primary disabled">تعديل</button>
                             <a href="{% url 'core:delete_product' product.id %}" class="btn btn-sm btn-outline-danger">حذف</a>
                         </td>
                     </tr>
@@ -95,5 +95,6 @@
     .text-success { color: #198754 !important; }
     .bg-danger-soft { background-color: rgba(220, 53, 69, 0.1); }
     .text-danger { color: #dc3545 !important; }
+    .object-fit-cover { object-fit: cover; }
 </style>
 {% endblock %}

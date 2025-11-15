@@ -1,78 +1,79 @@
-/* static/css/main.css (النسخة المحسنة) */
+/* static/css/main.css (النسخة النهائية والنظيفة) */
 
-/* --- الخطوط والألوان الأساسية --- */
+/* --- الخطوط الأساسية --- */
 body {
-    font-family: 'Cairo', sans-serif; /* خط عربي جميل ومقروء */
-    background-color: #f8f9fa; /* خلفية رمادية فاتحة جداً */
+    font-family: 'Cairo', sans-serif;
+    overflow-x: hidden; /* يمنع ظهور شريط التمرير الأفقي */
 }
 
-/* --- الشريط الجانبي المحسن --- */
+/* --- هيكل الواجهة والقائمة الجانبية --- */
+#wrapper {
+    display: flex;
+    transition: all 0.3s ease;
+}
+
 #sidebar-wrapper {
-    background-color: #212529; /* لون أسود فخم */
-    color: #fff;
+    min-height: 100vh;
+    width: 250px; /* عرض القائمة الجانبية */
+    background-color: #212529; /* لون الخلفية الداكن */
+    color: white;
+    transition: margin-right 0.3s ease;
+    margin-right: 0; /* القائمة ظاهرة بشكل افتراضي */
 }
 
-#sidebar-wrapper .sidebar-heading {
-    font-size: 1.5rem;
-    font-weight: 700;
+#page-content-wrapper {
+    flex-grow: 1; /* ✨✨✨ السطر الحاسم: يجبر منطقة المحتوى على أخذ كل المساحة المتبقية ✨✨✨ */
+    width: calc(100% - 250px); /* عرض المحتوى يساوي 100% ناقص عرض القائمة */
+    min-width: 0; /* يمنع المحتوى من التمدد بشكل غير مرغوب */
+    transition: width 0.3s ease;
+}
+
+/* --- حالة إخفاء القائمة الجانبية --- */
+#wrapper.toggled #sidebar-wrapper {
+    margin-right: -250px; /* إخفاء القائمة عن طريق تحريكها إلى اليمين */
+}
+
+#wrapper.toggled #page-content-wrapper {
+    width: 100%; /* عندما تكون القائمة مخفية، المحتوى يأخذ العرض الكامل */
+}
+
+/* --- تنسيقات القائمة الجانبية --- */
+.sidebar-heading {
     padding: 1.5rem 1.25rem;
-    border-bottom: 1px solid #495057;
+    font-size: 1.2rem;
+    font-weight: bold;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-#sidebar-wrapper .list-group-item {
-    background-color: #212529;
-    color: #adb5bd;
+.list-group-item {
+    background-color: transparent;
     border: none;
+    color: rgba(255, 255, 255, 0.7);
     padding: 1rem 1.25rem;
     transition: all 0.2s ease-in-out;
 }
 
-#sidebar-wrapper .list-group-item:hover,
-#sidebar-wrapper .list-group-item.active {
-    background-color: #0d6efd; /* لون أزرق مميز عند التحديد */
-    color: #fff;
-    border-right: 4px solid #ffc107; /* شريط أصفر للتأكيد */
+.list-group-item-action:hover,
+.list-group-item-action:focus {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
 }
 
-/* --- الشريط العلوي --- */
-#page-content-wrapper .navbar {
-    box-shadow: 0 2px 4px rgba(0,0,0,.08);
+.list-group-item.active {
+    background-color: #0d6efd; /* لون العنصر النشط */
+    color: white;
+    border-radius: 0.25rem;
+    margin: 0 0.5rem;
+    padding: 1rem 0.75rem;
 }
 
-/* --- البطاقات (Cards) المحسنة --- */
+/* --- تنسيقات إضافية لتحسين المظهر --- */
 .card {
     border: none;
-    border-radius: 0.75rem; /* حواف دائرية أكثر */
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); /* ظل ناعم */
-    transition: transform 0.2s;
 }
 
-.card:hover {
-    transform: translateY(-5px); /* حركة بسيطة عند المرور */
-}
-
-.card-header {
-    background-color: #fff;
-    border-bottom: 1px solid #e9ecef;
-    font-weight: 600;
-}
-
-/* --- الأزرار --- */
-.btn {
-    border-radius: 0.5rem; /* حواف دائرية للأزرار */
-    font-weight: 600;
-}
-
-/* --- الجداول --- */
-.table {
-    vertical-align: middle; /* توسيط المحتوى عمودياً */
-}
-
-.table thead {
-    background-color: #e9ecef;
-}
-
-/* --- النماذج المنبثقة (Modals) --- */
-.modal-content {
-    border-radius: 0.75rem;
-}
+.bg-success-soft { background-color: rgba(25, 135, 84, 0.1); }
+.text-success { color: #198754 !important; }
+.bg-danger-soft { background-color: rgba(220, 53, 69, 0.1); }
+.text-danger { color: #dc3545 !important; }
+.object-fit-cover { object-fit: cover; }

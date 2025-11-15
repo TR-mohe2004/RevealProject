@@ -1,118 +1,263 @@
-# core/views.py (النسخة النهائية الكاملة والحقيقية)
+# core/views.py (النسخة الكاملة والمستعادة)
 
 from django.shortcuts import render, redirect
-from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth import login, logout
-from django.contrib.auth.models import User
-from google.cloud import firestore
-from firebase_admin import storage, auth
-import random
-from datetime import datetime
-import uuid
-import pyrebase
-
+from django.contrib.auth import authenticate, login, logout
+from django.contrib import messages
 from django.conf import settings
-db = settings.FIRESTORE_DB
+from firebase_admin import auth as firebase_auth, firestore
+import pyrebase
+from datetime import datetime
+from django.contrib.auth.models import User
 
-try:
-    if hasattr(settings, 'PYREBASE_CONFIG') and not firebase_admin._apps:
-        firebase_pyrebase = pyrebase.initialize_app(settings.PYREBASE_CONFIG)
-        auth_pyrebase = firebase_pyrebase.auth()
-    elif firebase_admin._apps:
-        # إذا كان التطبيق مهيأ بالفعل، احصل على نسخة pyrebase
-        firebase_pyrebase = pyrebase.initialize_app(settings.PYREBASE_CONFIG)
-        auth_pyrebase = firebase_pyrebase.auth()
-    else:
-        auth_pyrebase = None
-except Exception:
-    # هذا يمنع الانهيار إذا تم إعادة تحميل الخادم
-    if 'firebase_pyrebase' not in locals() and hasattr(settings, 'PYREBASE_CONFIG'):
-        firebase_pyrebase = pyrebase.initialize_app(settings.PYREBASE_CONFIG)
-        auth_pyrebase = firebase_pyrebase.auth()
-    else:
-        auth_pyrebase = None
+# --- تهيئة Firebase ---
+firebase = pyrebase.initialize_app(settings.PYREBASE_CONFIG)
+auth = firebase.auth()
+db = firestore.client()
+storage = firebase.storage()
 
+# --- الدوال المساعدة ---
+def get_settings():
+    """جلب إعدادات النظام من Firestore أو استخدام الافتراضيات."""
+    try:
+        settings_doc = db.collection('config').document('system_settings').get()
+        if settings_doc.exists:
+            return settings_doc.to_dict()
+        else:
+            default_settings = {
+                'system_name': 'منظومة ريفيل',
+                'welcome_message': 'مرحباً بك في لوحة التحكم',
+                'min_charge_amount': 10.0,
+                'currency_symbol': 'د.ل',
+                'allow_registration': True,
+            }
+            # لا نحتاج لإعادة كتابة الإعدادات الافتراضية هنا، فقط نرجعها
+            return default_settings
+    except Exception:
+        return {
+            'system_name': 'منظومة ريفيل',
+            'welcome_message': 'مرحباً بك في لوحة التحكم',
+            'min_charge_amount': 10.0,
+            'currency_symbol': 'د.ل',
+            'allow_registration': True,
+        }
 
-# ==========================================================
-# == المصادقة وتسجيل الدخول/الخروج
-# ==========================================================
+# --- دوال المصادقة ---
 def login_view(request):
-    if request.user.is_authenticated: return redirect('core:dashboard')
+    if request.user.is_authenticated:
+        return redirect('core:dashboard')
+    
     if request.method == 'POST':
-        email, password = request.POST.get('email'), request.POST.get('password')
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+        
         try:
-            user_auth = auth_pyrebase.sign_in_with_email_and_password(email, password)
-            user, created = User.objects.get_or_create(username=email)
-            if created: user.set_unusable_password(); user.save()
-            login(request, user)
+            user = auth.sign_in_with_email_and_password(email, password)
+            django_user = authenticate(request, username=user['localId'], password=password)
+            
+            if django_user is None:
+                django_user = User.objects.create_user(username=user['localId'], email=email, password=password)
+            
+            login(request, django_user)
             return redirect('core:dashboard')
+            
         except Exception:
-            messages.error(request, "فشل تسجيل الدخول. تأكد من البريد الإلكتروني وكلمة المرور.")
-    return render(request, 'login.html')
+            error_message = "خطأ في تسجيل الدخول. تحقق من البريد الإلكتروني وكلمة المرور."
+            messages.error(request, error_message)
+            
+    return render(request, 'core/login.html')
 
+@login_required(login_url='core:login')
 def logout_view(request):
     logout(request)
     messages.success(request, "تم تسجيل الخروج بنجاح.")
     return redirect('core:login')
 
-
-# ==========================================================
-# == الصفحات الأساسية
-# ==========================================================
+# --- دوال الصفحات الرئيسية ---
 @login_required(login_url='core:login')
-def dashboard_view(request): return render(request, 'core/dashboard.html')
-
-@login_required(login_url='core:login')
-def orders_view(request): return render(request, 'core/orders.html')
+def dashboard_view(request):
+    context = {'settings': get_settings()}
+    return render(request, 'core/dashboard.html', context)
 
 @login_required(login_url='core:login')
-def stock_view(request): return render(request, 'core/stock.html')
+def orders_view(request):
+    orders_stream = db.collection('orders').order_by('timestamp', direction=firestore.Query.DESCENDING).stream()
+    
+    new_orders = []
+    preparing_orders = []
+    ready_orders = []
+    
+    for order in orders_stream:
+        data = order.to_dict()
+        data['id'] = order.id
+        
+        status = data.get('status', 'new')
+        
+        if status == 'new':
+            new_orders.append(data)
+        elif status == 'preparing':
+            preparing_orders.append(data)
+        elif status == 'ready':
+            ready_orders.append(data)
+            
+    context = {
+        'settings': get_settings(),
+        'new_orders': new_orders,
+        'preparing_orders': preparing_orders,
+        'ready_orders': ready_orders,
+    }
+    return render(request, 'core/orders.html', context)
 
+@login_required(login_url='core:login')
+def stock_view(request):
+    # سيتم تحديث هذه الدالة لاحقاً لتوفير بيانات المخزون
+    products_stream = db.collection('products').stream()
+    products = [{'id': product.id, **product.to_dict()} for product in products_stream]
+    context = {'settings': get_settings(), 'products': products}
+    return render(request, 'core/stock.html', context)
 
-# ==========================================================
-# == إدارة المنتجات
-# ==========================================================
+@login_required(login_url='core:login')
+def reports_view(request):
+    settings = get_settings()
+    product_count = db.collection('products').stream()
+    wallet_count = db.collection('wallets').stream()
+    
+    total_system_balance = sum(wallet.to_dict().get('balance', 0.0) for wallet in wallet_count)
+        
+    today = datetime.now().date()
+    start_of_day = datetime.combine(today, datetime.min.time())
+    transactions_today_query = db.collection('transactions').where('timestamp', '>=', start_of_day).order_by('timestamp', direction=firestore.Query.DESCENDING).stream()
+    
+    total_deposits_today = 0.0
+    total_refunds_today = 0.0
+    deposits_count_today = 0
+    latest_transactions = []
+    
+    for trans in transactions_today_query:
+        data = trans.to_dict()
+        data['id'] = trans.id
+        latest_transactions.append(data)
+        
+        if data.get('type') == 'deposit':
+            total_deposits_today += data.get('amount', 0.0)
+            deposits_count_today += 1
+        elif data.get('type') == 'refund':
+            total_refunds_today += data.get('amount', 0.0)
+
+    context = {
+        'settings': settings,
+        'product_count': len(list(product_count)),
+        'wallet_count': len(list(db.collection('wallets').stream())),
+        'total_system_balance': total_system_balance,
+        'total_deposits_today': total_deposits_today,
+        'total_refunds_today': total_refunds_today,
+        'deposits_count_today': deposits_count_today,
+        'latest_transactions': latest_transactions[:10],
+    }
+    return render(request, 'core/reports.html', context)
+
+@login_required(login_url='core:login')
+def settings_view(request):
+    settings_ref = db.collection('config').document('system_settings')
+    
+    if request.method == 'POST':
+        try:
+            updated_settings = {
+                'system_name': request.POST.get('system_name', 'منظومة ريفيل'),
+                'welcome_message': request.POST.get('welcome_message', 'مرحباً بك'),
+                'min_charge_amount': float(request.POST.get('min_charge_amount', 10.0)),
+                'currency_symbol': request.POST.get('currency_symbol', 'د.ل'),
+                'allow_registration': 'allow_registration' in request.POST,
+            }
+            settings_ref.set(updated_settings, merge=True)
+            messages.success(request, "تم حفظ الإعدادات بنجاح.")
+        except Exception as e:
+            messages.error(request, f"حدث خطأ أثناء حفظ الإعدادات: {e}")
+        
+        return redirect('core:settings')
+
+    context = {'settings': get_settings()}
+    return render(request, 'core/settings.html', context)
+
+# --- دوال إدارة المنتجات (تمت استعادتها سابقاً) ---
 @login_required(login_url='core:login')
 def products_view(request):
-    context = {}
-    try:
-        products_ref = db.collection('products').order_by('name')
-        products_docs = products_ref.stream()
-        context['products'] = [{'id': doc.id, **doc.to_dict()} for doc in products_docs]
-    except Exception as e:
-        messages.error(request, f"حدث خطأ: {e}")
-        context['products'] = []
+    products_stream = db.collection('products').stream()
+    products = []
+    for product in products_stream:
+        data = product.to_dict()
+        data['id'] = product.id
+        products.append(data)
+    
+    context = {'products': products, 'settings': get_settings()}
     return render(request, 'core/products.html', context)
 
 @login_required(login_url='core:login')
 def add_product_view(request):
     if request.method == 'POST':
-        try:
-            product_data = {
-                'name': request.POST.get('name'), 'price': float(request.POST.get('price')),
-                'category': request.POST.get('category', 'عام'), 'is_available': 'is_available' in request.POST,
-                'created_at': datetime.utcnow(), 'image_url': ''
-            }
-            image_file = request.FILES.get('image')
-            if image_file:
-                file_name = f"products/{uuid.uuid4()}_{image_file.name}"
-                bucket = storage.bucket()
-                blob = bucket.blob(file_name)
-                blob.upload_from_file(image_file, content_type=image_file.content_type)
-                blob.make_public()
-                product_data['image_url'] = blob.public_url
-            db.collection('products').add(product_data)
-            messages.success(request, "تمت إضافة المنتج بنجاح.")
-        except Exception as e:
-            messages.error(request, f"حدث خطأ أثناء إضافة المنتج: {e}")
+        name = request.POST.get('name')
+        price = float(request.POST.get('price'))
+        category = request.POST.get('category')
+        is_available = 'is_available' in request.POST
+        image_file = request.FILES.get('image')
+        
+        image_url = None
+        if image_file:
+            storage_path = f"products/{name}_{datetime.now().timestamp()}"
+            storage.child(storage_path).put(image_file)
+            image_url = storage.child(storage_path).get_url(None)
+            
+        product_data = {
+            'name': name, 'price': price, 'category': category,
+            'is_available': is_available, 'image_url': image_url,
+            'created_at': datetime.now()
+        }
+        
+        db.collection('products').add(product_data)
+        messages.success(request, f"تم إضافة المنتج {name} بنجاح.")
+        
     return redirect('core:products')
 
 @login_required(login_url='core:login')
 def edit_product_view(request, product_id):
-    # (منطق التعديل الكامل سيضاف هنا لاحقاً)
-    messages.info(request, "ميزة تعديل المنتج قيد التطوير.")
-    return redirect('core:products')
+    product_ref = db.collection('products').document(product_id)
+    
+    if request.method == 'POST':
+        try:
+            updated_data = {
+                'name': request.POST.get('name'),
+                'price': float(request.POST.get('price')),
+                'category': request.POST.get('category'),
+                'is_available': 'is_available' in request.POST,
+            }
+            
+            image_file = request.FILES.get('image')
+            if image_file:
+                storage_path = f"products/{updated_data['name']}_{datetime.now().timestamp()}"
+                storage.child(storage_path).put(image_file)
+                updated_data['image_url'] = storage.child(storage_path).get_url(None)
+
+            product_ref.update(updated_data)
+            messages.success(request, "تم تحديث المنتج بنجاح.")
+            return redirect('core:products')
+        except Exception as e:
+            messages.error(request, f"حدث خطأ أثناء تحديث المنتج: {e}")
+            return redirect('core:edit_product', product_id=product_id)
+
+    else:
+        product_doc = product_ref.get()
+        if not product_doc.exists:
+            messages.error(request, "المنتج غير موجود.")
+            return redirect('core:products')
+        
+        product_data = product_doc.to_dict()
+        product_data['id'] = product_doc.id
+        
+        context = {
+            'product': product_data,
+            'settings': get_settings()
+        }
+        return render(request, 'core/edit_product.html', context)
 
 @login_required(login_url='core:login')
 def delete_product_view(request, product_id):
@@ -123,209 +268,187 @@ def delete_product_view(request, product_id):
         messages.error(request, f"حدث خطأ أثناء حذف المنتج: {e}")
     return redirect('core:products')
 
-
-# ==========================================================
-# == إدارة المستخدمين (العملاء)
-# ==========================================================
-@login_required(login_url='core:login')
-def customers_view(request):
-    context = {}
-    try:
-        users_docs = db.collection('users').stream()
-        context['users'] = [{'uid': doc.id, **doc.to_dict()} for doc in users_docs]
-    except Exception as e:
-        messages.error(request, f"حدث خطأ أثناء جلب المستخدمين: {e}")
-        context['users'] = []
-    return render(request, 'core/customers.html', context)
-
-@login_required(login_url='core:login')
-def add_user_view(request):
-    if request.method == 'POST':
-        email, password, role = request.POST.get('email'), request.POST.get('password'), request.POST.get('role', 'cashier')
-        try:
-            user_record = auth.create_user(email=email, password=password)
-            user_data = {'email': email, 'role': role, 'created_at': datetime.utcnow()}
-            db.collection('users').document(user_record.uid).set(user_data)
-            messages.success(request, "تم إنشاء المستخدم بنجاح.")
-        except Exception as e:
-            messages.error(request, f"فشل إنشاء المستخدم: {e}")
-    return redirect('core:customers')
-
-@login_required(login_url='core:login')
-def delete_user_view(request, user_id):
-    try:
-        # لا تسمح للمستخدم بحذف نفسه
-        if auth.get_user_by_email(request.user.username).uid == user_id:
-            messages.error(request, "لا يمكنك حذف حسابك الخاص.")
-            return redirect('core:customers')
-        auth.delete_user(user_id)
-        db.collection('users').document(user_id).delete()
-        messages.success(request, "تم حذف المستخدم بنجاح.")
-    except Exception as e:
-        messages.error(request, f"حدث خطأ أثناء حذف المستخدم: {e}")
-    return redirect('core:customers')
-
-
-# ==========================================================
-# == إدارة المحافظ
-# ==========================================================
-def generate_unique_code():
-    while True:
-        code = str(random.randint(1000, 9999))
-        if not db.collection('wallets').document(code).get().exists: return code
-
+# --- دوال إدارة المحافظ (تمت استعادتها) ---
 @login_required(login_url='core:login')
 def wallet_recharge_view(request):
-    context = {}
+    query = request.GET.get('q')
     wallets_ref = db.collection('wallets')
-    search_query = request.GET.get('q', '').strip()
-    if search_query:
-        wallets_by_name = wallets_ref.where('owner_name', '>=', search_query).where('owner_name', '<=', search_query + '\uf8ff').stream()
-        all_wallets = [{'id': doc.id, **doc.to_dict()} for doc in wallets_by_name]
-        if search_query.isdigit():
-            wallet_by_code = wallets_ref.document(search_query).get()
-            if wallet_by_code.exists and not any(w['id'] == wallet_by_code.id for w in all_wallets):
-                all_wallets.append({'id': wallet_by_code.id, **wallet_by_code.to_dict()})
+    wallets = []
+    
+    if query:
+        wallet_by_id = wallets_ref.document(query).get()
+        if wallet_by_id.exists:
+            data = wallet_by_id.to_dict()
+            data['id'] = wallet_by_id.id
+            wallets.append(data)
+        
+        if not wallets:
+            all_wallets = wallets_ref.stream()
+            for wallet in all_wallets:
+                data = wallet.to_dict()
+                data['id'] = wallet.id
+                if query.lower() in data.get('owner_name', '').lower():
+                    wallets.append(data)
     else:
-        all_docs = wallets_ref.order_by('owner_name').stream()
-        all_wallets = [{'id': doc.id, **doc.to_dict()} for doc in all_docs]
-    context['wallets'] = all_wallets
-    context['search_query'] = search_query
+        wallets_stream = wallets_ref.stream()
+        for wallet in wallets_stream:
+            data = wallet.to_dict()
+            data['id'] = wallet.id
+            wallets.append(data)
+            
+    context = {'wallets': wallets, 'settings': get_settings()}
     return render(request, 'core/wallet_recharge.html', context)
 
 @login_required(login_url='core:login')
 def create_wallet_view(request):
     if request.method == 'POST':
-        owner_name, user_type = request.POST.get('owner_name'), request.POST.get('user_type')
-        new_code = generate_unique_code()
-        wallet_data = {'owner_name': owner_name, 'user_type': user_type, 'balance': 0.0, 'created_at': datetime.utcnow()}
-        db.collection('wallets').document(new_code).set(wallet_data)
-        messages.success(request, f"تم إنشاء محفظة لـ {owner_name} بالكود: {new_code}")
+        owner_name = request.POST.get('owner_name')
+        user_type = request.POST.get('user_type')
+        
+        wallet_data = {
+            'owner_name': owner_name, 'user_type': user_type,
+            'balance': 0.0, 'created_at': datetime.now()
+        }
+        
+        db.collection('wallets').add(wallet_data)
+        messages.success(request, f"تم إنشاء محفظة جديدة باسم {owner_name} بنجاح.")
+        
     return redirect('core:wallet_recharge')
 
 @login_required(login_url='core:login')
 def charge_wallet_view(request):
-    wallet_code = request.POST.get('wallet_code')
-    redirect_url = f"/wallet/?q={wallet_code}" if wallet_code else 'core:wallet_recharge'
     if request.method == 'POST':
-        try:
-            settings_doc = db.collection('config').document('system_settings').get()
-            min_charge_limit = settings_doc.to_dict().get('min_charge_limit', 10.0) if settings_doc.exists else 10.0
-            amount = float(request.POST.get('amount', 0))
-            if amount < min_charge_limit:
-                messages.error(request, f"خطأ: أقل مبلغ للشحن هو {min_charge_limit} د.ل.")
-                return redirect(redirect_url)
-            wallet_ref = db.collection('wallets').document(wallet_code)
-            @firestore.transactional
-            def update_in_transaction(transaction, wallet_ref, amount):
-                snapshot = wallet_ref.get(transaction=transaction)
-                if not snapshot.exists: raise ValueError("المحفظة غير موجودة!")
-                new_balance = snapshot.to_dict().get('balance', 0) + amount
-                transaction.update(wallet_ref, {'balance': new_balance})
-                log_ref = wallet_ref.collection('transaction_history').document()
-                log_data = {'type': 'deposit', 'amount': amount, 'new_balance': new_balance, 'timestamp': datetime.utcnow(), 'description': f"إيداع من قبل {request.user.username}"}
-                transaction.set(log_ref, log_data)
-                return new_balance
-            transaction = db.transaction()
-            final_balance = update_in_transaction(transaction, wallet_ref, amount)
-            messages.success(request, f"تم شحن المحفظة بنجاح. الرصيد الجديد: {final_balance:.2f} د.ل.")
-        except ValueError as ve: messages.error(request, str(ve))
-        except Exception as e: messages.error(request, f"حدث خطأ: {e}")
-    return redirect(redirect_url)
+        wallet_code = request.POST.get('wallet_code')
+        amount = float(request.POST.get('amount'))
+        
+        wallet_ref = db.collection('wallets').document(wallet_code)
+        wallet_doc = wallet_ref.get()
+        
+        if wallet_doc.exists:
+            wallet_data = wallet_doc.to_dict()
+            new_balance = wallet_data.get('balance', 0.0) + amount
+            wallet_ref.update({'balance': new_balance})
+            
+            db.collection('transactions').add({
+                'wallet_id': wallet_code, 'wallet_owner': wallet_data.get('owner_name'),
+                'type': 'deposit', 'amount': amount, 'new_balance': new_balance,
+                'timestamp': datetime.now()
+            })
+            
+            messages.success(request, f"تم شحن محفظة {wallet_data.get('owner_name')} بمبلغ {amount} د.ل. الرصيد الجديد: {new_balance} د.ل")
+        else:
+            messages.error(request, "المحفظة غير موجودة.")
+            
+    return redirect('core:wallet_recharge')
 
 @login_required(login_url='core:login')
 def refund_wallet_view(request):
-    wallet_code = request.POST.get('wallet_code')
-    redirect_url = f"/wallet/?q={wallet_code}" if wallet_code else 'core:wallet_recharge'
     if request.method == 'POST':
-        try:
-            amount = float(request.POST.get('amount', 0))
-            if amount <= 0:
-                messages.error(request, "مبلغ الاسترجاع يجب أن يكون أكبر من صفر.")
-                return redirect(redirect_url)
-            wallet_ref = db.collection('wallets').document(wallet_code)
-            @firestore.transactional
-            def update_in_transaction(transaction, wallet_ref, amount):
-                snapshot = wallet_ref.get(transaction=transaction)
-                if not snapshot.exists: raise ValueError("المحفظة غير موجودة!")
-                current_balance = snapshot.to_dict().get('balance', 0)
-                if amount > current_balance: raise ValueError(f"الرصيد غير كافٍ. الرصيد الحالي: {current_balance:.2f} د.ل.")
-                new_balance = current_balance - amount
-                transaction.update(wallet_ref, {'balance': new_balance})
-                log_ref = wallet_ref.collection('transaction_history').document()
-                log_data = {'type': 'refund', 'amount': amount, 'new_balance': new_balance, 'timestamp': datetime.utcnow(), 'description': f"استرجاع من قبل {request.user.username}"}
-                transaction.set(log_ref, log_data)
-                return new_balance
-            transaction = db.transaction()
-            final_balance = update_in_transaction(transaction, wallet_ref, amount)
-            messages.success(request, f"تم استرجاع {amount:.2f} د.ل بنجاح. الرصيد الجديد: {final_balance:.2f} د.ل.")
-        except ValueError as ve: messages.error(request, str(ve))
-        except Exception as e: messages.error(request, f"حدث خطأ: {e}")
-    return redirect(redirect_url)
+        wallet_code = request.POST.get('wallet_code')
+        amount = float(request.POST.get('amount'))
+        
+        wallet_ref = db.collection('wallets').document(wallet_code)
+        wallet_doc = wallet_ref.get()
+        
+        if wallet_doc.exists:
+            wallet_data = wallet_doc.to_dict()
+            new_balance = wallet_data.get('balance', 0.0) - amount
+            wallet_ref.update({'balance': new_balance})
+            
+            db.collection('transactions').add({
+                'wallet_id': wallet_code, 'wallet_owner': wallet_data.get('owner_name'),
+                'type': 'refund', 'amount': amount, 'new_balance': new_balance,
+                'timestamp': datetime.now()
+            })
+            
+            messages.success(request, f"تم استرجاع مبلغ {amount} د.ل من محفظة {wallet_data.get('owner_name')}. الرصيد الجديد: {new_balance} د.ل")
+        else:
+            messages.error(request, "المحفظة غير موجودة.")
+            
+    return redirect('core:wallet_recharge')
 
+# --- دوال إدارة الطلبات ---
 
-# ==========================================================
-# == التقارير والإعدادات
-# ==========================================================
 @login_required(login_url='core:login')
-def reports_view(request):
-    context = {}
+def change_order_status(request, order_id, new_status):
+    if request.method == 'GET':
+        order_ref = db.collection('orders').document(order_id)
+        order_doc = order_ref.get()
+        
+        if order_doc.exists:
+            try:
+                order_ref.update({'status': new_status, 'updated_at': datetime.now()})
+                
+                status_messages = {
+                    'preparing': 'تم قبول الطلب بنجاح وتحويله إلى "قيد التجهيز".',
+                    'ready': 'تم تجهيز الطلب بنجاح وتحويله إلى "جاهز للاستلام".',
+                    'completed': 'تم إتمام الطلب وأرشفته بنجاح.'
+                }
+                messages.success(request, status_messages.get(new_status, 'تم تحديث حالة الطلب بنجاح.'))
+            except Exception as e:
+                messages.error(request, f"حدث خطأ أثناء تحديث حالة الطلب: {e}")
+        else:
+            messages.error(request, "الطلب غير موجود.")
+            
+    return redirect('core:orders')
+
+@login_required(login_url='core:login')
+def accept_order(request, order_id):
+    return change_order_status(request, order_id, 'preparing')
+
+@login_required(login_url='core:login')
+def ready_order(request, order_id):
+    return change_order_status(request, order_id, 'ready')
+
+@login_required(login_url='core:login')
+def complete_order(request, order_id):
+    return change_order_status(request, order_id, 'completed')
+
+# --- دوال إدارة العملاء (تمت استعادتها) ---
+@login_required(login_url='core:login')
+def customers_view(request):
+    users = []
     try:
-        product_count = db.collection('products').count().get()[0][0].value
-        wallets_ref = db.collection('wallets')
-        all_wallets_docs = list(wallets_ref.stream())
-        wallet_count = len(all_wallets_docs)
-        total_system_balance = sum(doc.to_dict().get('balance', 0) for doc in all_wallets_docs)
-        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-        total_deposits_today, deposits_count_today, total_refunds_today = 0, 0, 0
-        latest_transactions = []
-        for wallet_doc in all_wallets_docs:
-            history_ref = wallet_doc.reference.collection('transaction_history').where('timestamp', '>=', today_start)
-            for trans_doc in history_ref.stream():
-                transaction = trans_doc.to_dict()
-                transaction['wallet_owner'] = wallet_doc.to_dict().get('owner_name', 'غير معروف')
-                latest_transactions.append(transaction)
-                if transaction.get('type') == 'deposit':
-                    total_deposits_today += transaction.get('amount', 0)
-                    deposits_count_today += 1
-                elif transaction.get('type') == 'refund':
-                    total_refunds_today += transaction.get('amount', 0)
-        latest_transactions.sort(key=lambda x: x['timestamp'], reverse=True)
-        context = {
-            'product_count': product_count, 'wallet_count': wallet_count, 'total_system_balance': total_system_balance,
-            'total_deposits_today': total_deposits_today, 'deposits_count_today': deposits_count_today,
-            'total_refunds_today': total_refunds_today, 'latest_transactions': latest_transactions[:10]
-        }
+        for user in firebase_auth.list_users().users:
+            user_doc = db.collection('users').document(user.uid).get()
+            user_data = user_doc.to_dict() if user_doc.exists else {}
+            
+            users.append({
+                'uid': user.uid, 'email': user.email,
+                'role': user_data.get('role', 'غير محدد'),
+                'created_at': user.creation_timestamp
+            })
     except Exception as e:
-        messages.error(request, f"حدث خطأ أثناء إنشاء التقرير: {e}")
-        context = {
-            'product_count': 0, 'wallet_count': 0, 'total_system_balance': 0, 'total_deposits_today': 0,
-            'deposits_count_today': 0, 'total_refunds_today': 0, 'latest_transactions': []
-        }
-    return render(request, 'core/reports.html', context)
+        messages.error(request, f"خطأ في جلب المستخدمين: {e}")
+        
+    context = {'users': users, 'settings': get_settings()}
+    return render(request, 'core/customers.html', context)
 
 @login_required(login_url='core:login')
-def settings_view(request):
-    settings_doc_ref = db.collection('config').document('system_settings')
+def add_user_view(request):
     if request.method == 'POST':
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+        role = request.POST.get('role')
+        
         try:
-            updated_settings = {
-                'system_name': request.POST.get('system_name', 'منظومة ريفيل'),
-                'welcome_message': request.POST.get('welcome_message', 'مرحباً بك.'),
-                'min_charge_limit': float(request.POST.get('min_charge_limit', 10.0))
-            }
-            settings_doc_ref.set(updated_settings, merge=True)
-            messages.success(request, "تم حفظ الإعدادات بنجاح.")
+            user = firebase_auth.create_user(email=email, password=password)
+            db.collection('users').document(user.uid).set({
+                'email': email, 'role': role, 'created_at': datetime.now()
+            })
+            messages.success(request, f"تم إنشاء المستخدم {email} بنجاح ({role}).")
         except Exception as e:
-            messages.error(request, f"حدث خطأ أثناء حفظ الإعدادات: {e}")
-        return redirect('core:settings')
+            messages.error(request, f"خطأ في إضافة المستخدم: {e}")
+            
+    return redirect('core:customers')
+
+@login_required(login_url='core:login')
+def delete_user_view(request, user_id):
     try:
-        settings_doc = settings_doc_ref.get()
-        current_settings = settings_doc.to_dict() if settings_doc.exists else {
-            'system_name': 'منظومة ريفيل', 'welcome_message': 'مرحباً بك في لوحة التحكم.', 'min_charge_limit': 10.0
-        }
+        firebase_auth.delete_user(user_id)
+        db.collection('users').document(user_id).delete()
+        messages.success(request, "تم حذف المستخدم بنجاح.")
     except Exception as e:
-        messages.error(request, f"حدث خطأ أثناء قراءة الإعدادات: {e}")
-        current_settings = {}
-    context = {'settings': current_settings}
-    return render(request, 'core/settings.html', context)
+        messages.error(request, f"خطأ في حذف المستخدم: {e}")
+        
+    return redirect('core:customers')

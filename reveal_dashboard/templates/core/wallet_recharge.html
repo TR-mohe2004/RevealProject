@@ -10,11 +10,11 @@
 </div>
 
 <!-- قسم البحث -->
-<div class="card mb-4">
+<div class="card mb-4 shadow-sm">
     <div class="card-body">
         <form method="GET" action="{% url 'core:wallet_recharge' %}">
             <div class="input-group">
-                <input type="text" class="form-control" name="q" placeholder="ابحث بالكود أو باسم صاحب المحفظة..." value="{{ search_query }}">
+                <input type="text" class="form-control" name="q" placeholder="ابحث بالكود أو باسم صاحب المحفظة..." value="{{ request.GET.q }}">
                 <button class="btn btn-outline-primary" type="submit"><i class="fas fa-search"></i> بحث</button>
             </div>
         </form>
@@ -22,43 +22,48 @@
 </div>
 
 <!-- جدول عرض المحافظ -->
-<div class="table-responsive">
-    <table class="table table-striped table-hover">
-        <thead>
-            <tr>
-                <th>الكود</th>
-                <th>اسم المالك</th>
-                <th>نوع المستخدم</th>
-                <th class="text-success">الرصيد</th>
-                <th>إجراءات</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for wallet in wallets %}
-            <tr>
-                <td><code>{{ wallet.id }}</code></td>
-                <td>{{ wallet.owner_name }}</td>
-                <td>{{ wallet.user_type }}</td>
-                <td class="fw-bold text-success">{{ wallet.balance|floatformat:2 }} د.ل</td>
-                <td>
-                    <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#chargeModal-{{ wallet.id }}">شحن</button>
-                    <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#refundModal-{{ wallet.id }}">استرجاع</button>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="5" class="text-center">لا توجد محافظ لعرضها.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">الكود</th>
+                        <th>اسم المالك</th>
+                        <th>نوع المستخدم</th>
+                        <th class="text-success">الرصيد</th>
+                        <th>إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for wallet in wallets %}
+                    <tr>
+                        <td class="ps-4"><code>{{ wallet.id }}</code></td>
+                        <td>{{ wallet.owner_name }}</td>
+                        <td>{{ wallet.user_type }}</td>
+                        <td class="fw-bold text-success">{{ wallet.balance|floatformat:2 }} د.ل</td>
+                        <td>
+                            <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#chargeModal-{{ wallet.id }}">شحن</button>
+                            <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#refundModal-{{ wallet.id }}">استرجاع</button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center p-5">لا توجد محافظ لعرضها.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
+
 
 <!-- Modals for each wallet -->
 {% for wallet in wallets %}
 <!-- Charge Modal -->
 <div class="modal fade" id="chargeModal-{{ wallet.id }}" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <form action="{% url 'core:charge_wallet' %}" method="POST">
                 {% csrf_token %}
@@ -68,11 +73,12 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p>الرصيد الحالي: {{ wallet.balance|floatformat:2 }} د.ل</p>
-                    <label for="amount" class="form-label">المبلغ (الحد الأدنى 10 د.ل)</label>
-                    <input type="number" name="amount" class="form-control" step="0.5" min="10" required>
+                    <p>الرصيد الحالي: <span class="fw-bold">{{ wallet.balance|floatformat:2 }} د.ل</span></p>
+                    <label for="amount" class="form-label">المبلغ (الحد الأدنى {{ settings.min_charge_amount }} د.ل)</label>
+                    <input type="number" name="amount" class="form-control" step="0.5" min="{{ settings.min_charge_amount }}" required>
                 </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
                     <button type="submit" class="btn btn-success">تأكيد الشحن</button>
                 </div>
             </form>
@@ -82,7 +88,7 @@
 
 <!-- Refund Modal -->
 <div class="modal fade" id="refundModal-{{ wallet.id }}" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <form action="{% url 'core:refund_wallet' %}" method="POST">
                 {% csrf_token %}
@@ -92,11 +98,12 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p>الرصيد الحالي: {{ wallet.balance|floatformat:2 }} د.ل</p>
+                    <p>الرصيد الحالي: <span class="fw-bold">{{ wallet.balance|floatformat:2 }} د.ل</span></p>
                     <label for="amount" class="form-label">مبلغ الاسترجاع</label>
                     <input type="number" name="amount" class="form-control" step="0.5" max="{{ wallet.balance }}" required>
                 </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
                     <button type="submit" class="btn btn-warning">تأكيد الاسترجاع</button>
                 </div>
             </form>
@@ -105,5 +112,32 @@
 </div>
 {% endfor %}
 
-<!-- (Modal for creating a new wallet remains the same) -->
+<!-- Modal: Create Wallet -->
+<div class="modal fade" id="createWalletModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form action="{% url 'core:create_wallet' %}" method="POST">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">إنشاء محفظة جديدة</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">اسم صاحب المحفظة</label>
+                        <input type="text" name="owner_name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">نوع المستخدم</label>
+                        <input type="text" name="user_type" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">إنشاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}
