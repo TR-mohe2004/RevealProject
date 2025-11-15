@@ -1,9 +1,71 @@
-{% extends 'base.html' %}
-{% load static %}
-
-{% block title %}لوحة التحكم{% endblock %}
+{% extends "base.html" %}
+{% block title %}الإعدادات{% endblock %}
 
 {% block content %}
-    <h1>لوحة التحكم</h1>
-    <p>مرحباً بك في منظومة ريفيل. هذه هي الصفحة الرئيسية.</p>
-{% endblock content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">إعدادات النظام</h1>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">تعديل الإعدادات العامة</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{% url 'core:settings' %}">
+                    {% csrf_token %}
+
+                    <!-- اسم المنظومة -->
+                    <div class="mb-3">
+                        <label for="system_name" class="form-label">اسم المنظومة</label>
+                        <input type="text" class="form-control" id="system_name" name="system_name" value="{{ settings.system_name }}">
+                        <div class="form-text">الاسم الذي يظهر في رأس الصفحات.</div>
+                    </div>
+
+                    <!-- رسالة الترحيب -->
+                    <div class="mb-3">
+                        <label for="welcome_message" class="form-label">رسالة الترحيب</label>
+                        <input type="text" class="form-control" id="welcome_message" name="welcome_message" value="{{ settings.welcome_message }}">
+                        <div class="form-text">رسالة تظهر للمستخدمين في لوحة التحكم.</div>
+                    </div>
+
+                    <hr>
+
+                    <h6 class="mt-4">إعدادات المحفظة</h6>
+                    <!-- الحد الأدنى للشحن -->
+                    <div class="mb-3">
+                        <label for="min_charge_limit" class="form-label">الحد الأدنى للشحن (بالدينار)</label>
+                        <input type="number" step="0.5" class="form-control" id="min_charge_limit" name="min_charge_limit" value="{{ settings.min_charge_limit }}">
+                        <div class="form-text">أقل مبلغ يمكن إضافته للمحفظة في عملية واحدة.</div>
+                    </div>
+
+                    <!-- زر الحفظ -->
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>حفظ التغييرات
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h5 class="card-title">مساعدة</h5>
+                <p class="card-text">
+                    هذه الصفحة تسمح لك بالتحكم في المتغيرات الأساسية للنظام.
+                </p>
+                <ul>
+                    <li><strong>اسم المنظومة:</strong> يظهر في كل مكان في النظام.</li>
+                    <li><strong>الحد الأدنى للشحن:</strong> يمنع الكاشير من شحن مبالغ صغيرة جداً عن طريق الخطأ.</li>
+                </ul>
+                <p class="card-text">
+                    سيتم إضافة المزيد من الإعدادات هنا في المستقبل للتحكم في صلاحيات المستخدمين، إعدادات الطباعة، وغيرها.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

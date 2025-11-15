@@ -1,3 +1,4 @@
+<!-- templates/base.html (النسخة النهائية الكاملة والمحسّنة) -->
 {% load static %}
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -6,71 +7,77 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}لوحة التحكم{% endblock %} - منظومة ريفيل</title>
     
-    <!-- Bootstrap CSS from CDN -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <!-- Bootstrap & Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     
-    <!-- Font Awesome Icons from CDN -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    
-    <!-- Main CSS File (The one that fixes the layout ) -->
+    <!-- Google Fonts & Custom CSS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/main.css' %}">
-    
-    <!-- Extra CSS for specific pages (like dashboard.css) -->
-    {% block page_css %}{% endblock %}
+
+    <!-- PWA (Progressive Web App ) Manifest -->
+    <meta name="theme-color" content="#212529">
+    <link rel="manifest" href="{% url 'manifest' %}">
+    <link rel="apple-touch-icon" href="{% static 'icons/icon-192x192.png' %}">
+
 </head>
 <body>
     <div class="d-flex" id="wrapper">
+        <!-- =============================================== -->
         <!-- Sidebar -->
+        <!-- =============================================== -->
         <div id="sidebar-wrapper">
-            <div class="sidebar-heading">منظومة ريفيل</div>
+            <div class="sidebar-heading"><i class="fas fa-rocket me-2"></i> منظومة ريفيل</div>
             <div class="list-group list-group-flush">
-                <a href="{% url 'core:dashboard' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                    <i class="fas fa-chart-pie fa-fw me-3"></i>لوحة التحكم
-                </a>
-                <a href="{% url 'core:orders' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'orders' %}active{% endif %}">
-                    <i class="fas fa-receipt fa-fw me-3"></i>إدارة الطلبات
-                </a>
-                <a href="{% url 'core:products' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'products' %}active{% endif %}">
-                    <i class="fas fa-hamburger fa-fw me-3"></i>إدارة المنتجات
-                </a>
-                <a href="{% url 'core:stock' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'stock' %}active{% endif %}">
-                    <i class="fas fa-boxes-stacked fa-fw me-3"></i>إدارة المخزون
-                </a>
-                <a href="{% url 'core:customers' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'customers' %}active{% endif %}">
-                    <i class="fas fa-users fa-fw me-3"></i>إدارة العملاء
-                </a>
-                <a href="{% url 'core:reports' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'reports' %}active{% endif %}">
-                    <i class="fas fa-chart-line fa-fw me-3"></i>التقارير
-                </a>
-                <a href="{% url 'core:wallet_recharge' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'wallet_recharge' %}active{% endif %}">
-                    <i class="fas fa-wallet fa-fw me-3"></i>شحن المحفظة
-                </a>
-                <a href="{% url 'core:settings' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
-                    <i class="fas fa-cog fa-fw me-3"></i>الإعدادات
-                </a>
+                
+                <!-- ✨✨✨ التعديل هنا: إضافة كلاس 'active' ديناميكياً ✨✨✨ -->
+                <a href="{% url 'core:dashboard' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"><i class="fas fa-tachometer-alt fa-fw me-3"></i>لوحة التحكم</a>
+                <a href="{% url 'core:orders' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'orders' %}active{% endif %}"><i class="fas fa-receipt fa-fw me-3"></i>إدارة الطلبات</a>
+                <a href="{% url 'core:products' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'products' %}active{% endif %}"><i class="fas fa-hamburger fa-fw me-3"></i>إدارة المنتجات</a>
+                <a href="{% url 'core:stock' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'stock' %}active{% endif %}"><i class="fas fa-boxes-stacked fa-fw me-3"></i>إدارة المخزون</a>
+                <a href="{% url 'core:customers' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'customers' %}active{% endif %}"><i class="fas fa-users fa-fw me-3"></i>إدارة العملاء</a>
+                <a href="{% url 'core:wallet_recharge' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'wallet_recharge' %}active{% endif %}"><i class="fas fa-wallet fa-fw me-3"></i>شحن المحفظة</a>
+                <a href="{% url 'core:reports' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'reports' %}active{% endif %}"><i class="fas fa-chart-pie fa-fw me-3"></i>التقارير</a>
+                <a href="{% url 'core:settings' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'settings' %}active{% endif %}"><i class="fas fa-cog fa-fw me-3"></i>الإعدادات</a>
             </div>
         </div>
         <!-- /#sidebar-wrapper -->
 
+        <!-- =============================================== -->
         <!-- Page Content -->
+        <!-- =============================================== -->
         <div id="page-content-wrapper">
             <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom">
                 <div class="container-fluid">
                     <button class="btn btn-primary" id="menu-toggle"><i class="fas fa-align-left"></i></button>
+                    
+                    <!-- User Dropdown Menu -->
                     <ul class="navbar-nav ms-auto mt-2 mt-lg-0">
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                <i class="fas fa-user me-2"></i>اسم المستخدم
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-user me-2"></i>{{ request.user.username }}
                             </a>
-                            <div class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                                <a class="dropdown-item" href="#">خروج</a>
+                            <div class="dropdown-menu dropdown-menu-end">
+                                <a class="dropdown-item text-danger" href="{% url 'core:logout' %}"><i class="fas fa-sign-out-alt fa-fw me-2"></i>تسجيل الخروج</a>
                             </div>
                         </li>
                     </ul>
                 </div>
             </nav>
 
+            <!-- Main Content Area -->
             <main class="container-fluid p-4">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+                
                 {% block content %}{% endblock %}
             </main>
         </div>
@@ -78,7 +85,10 @@
     </div>
     <!-- /#wrapper -->
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JS for Sidebar Toggle -->
     <script>
         document.getElementById("menu-toggle" ).addEventListener("click", function() {
             document.getElementById("wrapper").classList.toggle("toggled");

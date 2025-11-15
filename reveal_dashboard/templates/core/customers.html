@@ -1,9 +1,76 @@
-{% extends 'base.html' %}
-{% load static %}
-
-{% block title %}لوحة التحكم{% endblock %}
+{% extends "base.html" %}
+{% block title %}إدارة العملاء{% endblock %}
 
 {% block content %}
-    <h1>لوحة التحكم</h1>
-    <p>مرحباً بك في منظومة ريفيل. هذه هي الصفحة الرئيسية.</p>
-{% endblock content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">إدارة العملاء (المسؤولين)</h1>
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+        <i class="fas fa-user-plus me-2"></i>إضافة مسؤول جديد
+    </button>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>البريد الإلكتروني</th>
+                <th>الدور (الصلاحية)</th>
+                <th>تاريخ الإنشاء</th>
+                <th>إجراءات</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.email }}</td>
+                <td><span class="badge bg-info">{{ user.role }}</span></td>
+                <td>{{ user.created_at|date:"Y-m-d" }}</td>
+                <td>
+                    <a href="{% url 'core:delete_user' user.uid %}" class="btn btn-sm btn-outline-danger">حذف</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" class="text-center">لا يوجد مستخدمون لعرضهم.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{% url 'core:add_user' %}" method="POST">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">إضافة مسؤول جديد</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">البريد الإلكتروني</label>
+                        <input type="email" name="email" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">كلمة المرور</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الدور (الصلاحية)</label>
+                        <select name="role" class="form-select">
+                            <option value="cashier">كاشير</option>
+                            <option value="manager">مدير</option>
+                            <option value="super_admin">مسؤول أعلى</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
